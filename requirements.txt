@@ -1,0 +1,9 @@
+pandas
+pyarrow
+duckdb
+scipy
+statsmodels
+matplotlib
+seaborn
+lifelines
+streamlit
