@@ -1,116 +1,144 @@
-"""Streamlit dashboard for GitSkills + SpecMine exploratory analysis.
+"""Streamlit dashboard: the SpecMine discovery walkthrough (M0-M8 + Discovery).
 
 Run with:  py -m streamlit run app.py
 """
-import pandas as pd
+from pathlib import Path
+
 import streamlit as st
 
-import charts
-import db
-import queries
-import stats
+st.set_page_config(page_title="MSR 2027 - Discovery walkthrough", layout="wide")
+st.title("SpecMine discovery walkthrough")
+st.caption("The line of reasoning from the data to the central result (SpecMine-only).")
 
-st.set_page_config(page_title="MSR 2027 — GitSkills + SpecMine", layout="wide")
-st.title("MSR 2027 Mining Challenge — Análise exploratória")
-st.caption("GitSkills (SQLite) + SpecMine (Parquet) via DuckDB")
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
-conn = db.get_conn()
-
-
-def q(sql):
-    return conn.execute(sql).df()
-
-
-def show(fig):
-    """Render a matplotlib figure at its native (~600px) size."""
-    st.pyplot(fig, width="content")
-
-
-tab_gs, tab_sm, tab_stats = st.tabs(["GitSkills", "SpecMine", "Estatística"])
-
-# ---------------- GitSkills ----------------
-with tab_gs:
-    st.header("GitSkills — agent skills")
-
-    st.subheader("Reuso / duplicação (cauda longa)")
-    copies = q(queries.GITSKILLS["copy_distribution"])
-    expanded = copies["copies"].repeat(copies["n_contents"])
-    show(charts.log_hist(expanded, "Distribuição de cópias por conteúdo (log)", bins=40))
-    st.write(f"Conteúdos distintos: {int(copies['n_contents'].sum()):,}")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("Classe de localização")
-        show(charts.bar(q(queries.GITSKILLS["location_class"]), "location_class", "n", "Location class"))
-    with c2:
-        st.subheader("Validade do front matter")
-        show(charts.bar(q(queries.GITSKILLS["frontmatter"]), "frontmatter_valid", "n", "Front matter válido"))
-
-    st.subheader("Comprimento do corpo (body_chars) + curva normal")
-    body = q(queries.GITSKILLS["body_chars"])["body_chars"]
-    show(charts.hist_with_normal(body, "Distribuição de body_chars (representantes)"))
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("Skills por repositório (concentração)")
-        spr = q(queries.GITSKILLS["skills_per_repo"])
-        show(charts.log_hist(spr["n"], "Skills por repo (log)", bins=40))
-    with c2:
-        st.subheader("Estrelas por repositório")
-        stars = q(queries.GITSKILLS["stars"])["stars"]
-        show(charts.log_hist(stars, "Estrelas (log)", bins=40))
-
-    st.subheader("Linguagens")
-    show(charts.bar(q(queries.GITSKILLS["languages"]), "language", "n", "Top linguagens", horizontal=True, top=15))
-
-    st.subheader("Adoção no tempo (amostrada)")
-    show(charts.time_series(q(queries.GITSKILLS["adoption_time"]), "d", "n", "Skills por data de primeiro commit"))
-
-# ---------------- SpecMine ----------------
-with tab_sm:
-    st.header("SpecMine — spec-driven development")
-
-    c1, c2 = st.columns(2)
-    with c1:
-        st.subheader("Ciclo de vida (spec_role)")
-        show(charts.bar(q(queries.SPECMINE["spec_role"]), "spec_role", "n", "spec_role"))
-    with c2:
-        st.subheader("Ferramentas (spec_tool)")
-        show(charts.bar(q(queries.SPECMINE["spec_tool"]), "spec_tool", "n", "spec_tool", horizontal=True, top=15))
-
-    st.subheader("Comprimento do spec (n_lines) + curva normal")
-    nl = q(queries.SPECMINE["n_lines"])["n_lines"]
-    show(charts.hist_with_normal(nl, "Distribuição de n_lines"))
-
-    st.subheader("Rastreabilidade (spec_links.rel)")
-    show(charts.bar(q(queries.SPECMINE["spec_links_rel"]), "rel", "n", "Tipos de referência"))
-
-    st.subheader("Co-change (touches_code)")
-    show(charts.bar(q(queries.SPECMINE["touches_code"]), "touches_code", "n", "PRs que mudam spec + código"))
-
-    st.subheader("Adoção no tempo")
-    show(charts.time_series(q(queries.SPECMINE["adoption_time"]), "d", "n", "Specs por data de primeiro commit"))
-
-# ---------------- Estatística ----------------
-with tab_stats:
-    st.header("Estatística descritiva")
-
-    st.subheader("GitSkills — body_chars")
-    body = q(queries.GITSKILLS["body_chars"])["body_chars"]
-    st.dataframe(pd.DataFrame([stats.describe_numeric(body, "body_chars")]))
-
-    st.subheader("SpecMine — n_lines")
-    nl = q(queries.SPECMINE["n_lines"])["n_lines"]
-    st.dataframe(pd.DataFrame([stats.describe_numeric(nl, "n_lines")]))
-
-    st.subheader("Inferencial — Mann-Whitney: body_chars (canonical vs other)")
-    loc = q(
-        """
-        SELECT location_class, body_chars FROM gitskills.artifacts
-        WHERE dedup_primary = 1 AND body_chars IS NOT NULL
-        """
+def phase(title):
+    st.markdown(
+        f'<h3 style="color:#0b5394; margin-top:1.5rem; margin-bottom:0.5rem;">{title}</h3>',
+        unsafe_allow_html=True,
     )
-    canon = loc[loc.location_class == "canonical"]["body_chars"]
-    other = loc[loc.location_class != "canonical"]["body_chars"]
-    st.json(stats.mannwhitney(canon, other))
+
+
+def caption(text):
+    st.markdown(
+        f'<div style="font-size:1.5rem; line-height:1.5; color:#666;">{text}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def show_png(fname):
+    p = DATA_DIR / fname
+    if p.exists():
+        st.image(str(p), width="stretch")
+    else:
+        st.info(f"{fname} not found - run the matching chart_*.py script.")
+
+
+t0, t1, t2, t3, t4, t5, t6, t7, t8, td = st.tabs(
+    ["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "Discovery"]
+)
+
+with t0:
+    phase("M0 - Sample stats: is the data heavy-tailed?")
+    caption(
+        "The SpecMine sample is heavy-tailed: n_lines has mean 91, median 56 and skew 9.1 "
+        "(Shapiro-Wilk p ~ 0), and 51.5% of specs are archived. This justifies non-parametric "
+        "tests throughout the analysis."
+    )
+    show_png("chart_m0_sample.png")
+
+with t1:
+    phase("M1 - Sample vs Full: is the sample representative?")
+    caption(
+        "The sample is a small star-curated slice: 28,583 specs = 6.1% of the full 470,795 and "
+        "7.0% of the code references; the PR layer is 5,335 (89% of 5,992). The full dataset is "
+        "needed for the census."
+    )
+    show_png("chart_m1_sample_full.png")
+
+with t2:
+    phase("M2 - The pivot: which question does the data support?")
+    caption(
+        "Every spec-touching PR in the dataset is merged (is_merged=1 for all 5,992), so "
+        "'rejected by a human reviewer' is not observable - the review question (Q3) is dropped. "
+        "The traceability question (does a checked-off task actually ship as code?) is the one "
+        "the data supports."
+    )
+    show_png("chart_m2_pivot.png")
+
+with t3:
+    phase("M3 - Census: does the gap exist at scale?")
+    caption(
+        "34,227 references (10.3% of the 332,168 done references with a resolvable anchor) are "
+        "marked done but have no code at the anchor commit - a population-level phenomenon."
+    )
+    show_png("chart_census.png")
+
+with t4:
+    phase("M4 - Discovery: exists_at_anchor is not binary")
+    caption(
+        "exists_at_anchor is 0 (51,979), 1 (361,083), 2 (130, in 5 repos) and NULL (22,209); "
+        "NULL happens exactly when anchor_sha is NULL. The column is under-documented - a "
+        "data-quality contribution."
+    )
+    show_png("chart_m4_discovery.png")
+
+with t5:
+    phase("M5 - Taxonomy: real file or path noise?")
+    caption(
+        "91% of the done-but-missing are real file references (17,799 clean + 13,326 bare), 9% "
+        "are non-file noise. The 'missing' is real absence, not malformed paths."
+    )
+    show_png("chart_taxonomy.png")
+
+with t6:
+    phase("M6 - Accessibility: what do the specs ask?")
+    caption(
+        "97,883 requirement lines across 10,717 repos; 27.1% are verifiable. Formal spec tools "
+        "(openspec 37.0%, speckit 35.6%) write testable accessibility requirements far more "
+        "often than informal specs (docs_embedded 8.9%)."
+    )
+    show_png("chart_accessibility.png")
+
+with t7:
+    phase("M7 - Calibration: how much is path normalization?")
+    caption(
+        "Among the references with a clean relative path that DO resolve, 15.2% resolve at a "
+        "different path than written - the rename/normalization burden the next layer must "
+        "recover. (The 94.8% for bare names is tautological.)"
+    )
+    show_png("chart_m7_calibration.png")
+
+with t8:
+    phase("M8 - Phase 3 + Bridge: how many are truly 'never'?")
+    caption(
+        "84% are genuinely absent at the anchor: 54% never (median 66.7% per repo) + 30% "
+        "written-then-removed. The never/deleted composition inverts with maturity (churn in "
+        "0-star, non-implementation in serious repos), and repositories with accessibility "
+        "requirements have more 'never' (60.4% vs 41.5%)."
+    )
+    show_png("phase3_by_bucket.png")
+    show_png("chart_bridge.png")
+
+with td:
+    phase("Discovery - the full arc (M0 -> M8)")
+    caption(
+        "10.3% done-but-missing -> 91% real files -> 84% genuinely absent (54% never + 30% "
+        "deleted) -> the composition inverts with maturity -> accessibility correlates with "
+        "more never."
+    )
+    for label, fname, meaning in [
+        ("M0", "chart_m0_sample.png", "heavy-tailed: skew 9.1, 51.5% archived"),
+        ("M1", "chart_m1_sample_full.png", "sample = 6.1% of specs, 89% of PRs"),
+        ("M2", "chart_m2_pivot.png", "all 5,992 PRs merged -> scope to traceability"),
+        ("M3", "chart_census.png", "34,227 = 10.3% done-but-missing"),
+        ("M4", "chart_m4_discovery.png", "exists_at_anchor is 0/1/2/NULL, not binary"),
+        ("M5", "chart_taxonomy.png", "91% real file references"),
+        ("M6", "chart_accessibility.png", "27.1% verifiable"),
+        ("M7", "chart_m7_calibration.png", "15.2% rename (94.8% tautological)"),
+        ("M8", "phase3_by_bucket.png", "never/deleted inverts with maturity"),
+        ("M8", "chart_bridge.png", "accessibility -> more never"),
+    ]:
+        st.markdown(f"**{label}** - {meaning}")
+        show_png(fname)

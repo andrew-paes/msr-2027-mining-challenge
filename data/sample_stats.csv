@@ -1,0 +1,2 @@
+n_lines_n,n_lines_mean,n_lines_median,n_lines_skew,n_lines_shapiro_p,pct_archived,n_role_archived,n_role_living,n_role_na,n_role_change_proposal,n_role_feature,n_role_config
+28583,90.8,56.0,9.1,1.114487471353844e-80,51.5,14708,4985,4524,2196,1781,389
