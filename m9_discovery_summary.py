@@ -31,7 +31,7 @@ CHARTS = [
      [FULL / "spec_files.parquet"]),
     ("chart_m2_pivot.png", "M2 - all PRs merged -> traceability", "chart_m2.py",
      [FULL / "pull_requests.parquet"]),
-    ("chart_census.png", "M3 - 10.3% missing; 17.7% change_proposal vs 9.0% archived", "chart_census.py",
+    ("chart_census.png", "M3 - 10.3% of 332,168 with-anchor (8,746 without); 17.7% vs 9.0%; 73.5% in archived", "chart_census.py",
      [FULL / "openspec_code_refs.parquet"]),
     ("chart_m4_discovery.png", "M4 - exists_at_anchor not binary", "chart_m4.py",
      [FULL / "openspec_code_refs.parquet"]),

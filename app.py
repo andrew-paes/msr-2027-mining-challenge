@@ -74,7 +74,7 @@ with t3:
     phase("M3 - Census: does the gap exist at scale?")
     caption(
         "34,227 references (10.3% of the 332,168 done references with a resolvable anchor) are "
-        "marked done but have no code at the anchor commit - a population-level phenomenon. The gap concentrates in active change proposals: 17.7% vs 9.0% archived."
+        "marked done but have no code at the anchor commit - a population-level phenomenon. The missing rate is higher in active changes (17.7% vs 9.0% archived changes), but in absolute terms most missing tasks live in archived changes (73.5% vs 26.5%), because that group is far larger."
     )
     show_png("chart_census.png")
 
