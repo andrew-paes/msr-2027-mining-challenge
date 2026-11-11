@@ -5,7 +5,7 @@
 #   Result:      all 5,992 spec-touching PRs are merged (is_merged=1) -> the
 #                rejected/closed PRs are invisible -> the review question (Q3)
 #                cannot be answered
-#   Meaning:     scope to the traceability question (Q2); trust becomes
+#   Meaning:     scope to the traceability question (Q1); trust becomes
 #                motivation, never a causal conclusion
 # =====================================================================
 

@@ -13,7 +13,7 @@ the most novel and the most data-supported, so this repository is SpecMine-only
 (GitSkills appears below only as the scoped-out alternative).
 
 **The central result.** Of the 332,168 spec tasks marked *done* with a resolvable
-anchor commit, **10.3%** (34,227) have no code at that commit. Of those, **91%**
+anchor commit, **10.3%** (34,227) have no code at that commit, concentrated in active change proposals (17.7% vs 9.0% archived). Of those, **91%**
 are genuine file references (not path noise), and **84.0%** are genuinely absent
 — **54.5% never written on any branch**, 29.5% written then removed — with the
 never/deleted composition inverting with repository maturity, and accessibility
@@ -27,15 +27,15 @@ isolation:
 
 | # | Script | Question | Result |
 |---|---|---|---|
-| M0 | `m0_sample_stats.py` | Is the sample heavy-tailed? | `n_lines` skew 9.1; 51.5% archived |
+| M0 | `m0_sample_stats.py` | Is the sample strongly right-skewed? | `n_lines` skew 11.4 |
 | M1 | `m1_sample_full.py` | Is the sample representative? | 28,583 specs = 6.1% of the full |
 | M2 | `m2_pivot.py` | Which question does the data support? | all 5,992 PRs merged → traceability |
-| M3 | `m3_census.py` | Does the gap exist at scale? | 34,227 = 10.3% |
+| M3 | `m3_census.py` | Does the gap exist at scale, and where? | 34,227 = 10.3%; 17.7% change_proposal vs 9.0% archived |
 | M4 | `m4_discovery.py` | Is `exists_at_anchor` binary? | 0 / 1 / 2 / NULL — under-documented |
 | M5 | `m5_taxonomy.py` | Real file or path noise? | 91% real files |
 | M6 | `m6_accessibility.py` | Are accessibility reqs verifiable? | 27.1% |
 | M7 | `m7_calibration.py` | How much is path normalization? | 15.2% |
-| M8 | `m8_phase3_bridge.py` | How many are truly "never"? | 54.5% never; inverts with maturity |
+| M8 | `m8_bridge.py` | How many are truly "never"? | 54.5% never; inverts with maturity |
 | M9 | `m9_discovery_summary.py` | The whole arc | — |
 
 Run any milestone to reproduce its number:
@@ -108,7 +108,7 @@ export SAMPLE_SPECMINE_DATA=/path/to/specmine/v1.1/data
 
 ## Installation
 
-Requires **Python 3.9+** and **git** (for the Phase 3 clone step).
+Requires **Python 3.9+** and **git** (for the clone-classify clone step).
 
 ```bash
 pip install -r requirements.txt
@@ -122,8 +122,8 @@ or `make install`.
 make run       # start the Streamlit walkthrough (M0–M8 + Discovery)
 make test      # validate the app headlessly
 make charts    # regenerate all derived CSVs + charts from the dataset
-make clone     # pre-clone the Phase 3 sample (network-bound)
-make phase3    # run Phase 3 (clone-if-needed + classify)
+make clone     # pre-clone the clone-classify sample (network-bound)
+make classify    # run clone-classify (clone-if-needed + classify)
 make clean     # remove __pycache__ caches
 ```
 
@@ -139,26 +139,26 @@ committed so results can be checked without re-running the expensive stages.
 |---|---|---|---|
 | extract | `openspec_code_refs.parquet` → `data/taxonomy_e0.csv` | `taxonomy.py` | yes |
 | extract | `specs.jsonl` + `spec_files.parquet` → `data/accessibility_requirements.csv` | `extract_accessibility.py` | yes |
-| extract | `taxonomy_e0.csv` + `spec_files.parquet` + git clones → `data/phase3_results.csv` | `phase3.py` | **no (git is mutable)** |
+| extract | `taxonomy_e0.csv` + `spec_files.parquet` + git clones → `data/classification_results.csv` | `clone_classify.py` | **no (git is mutable)** |
 | chart | the CSVs / parquet → `data/*.png` | `chart_*.py` | yes (given its CSV) |
 
 ### The commands
 
 `make charts` re-runs the whole chain in dependency order — `taxonomy.py`,
-`extract_accessibility.py`, `phase3.py`, then the five `chart_*.py` — so every
+`extract_accessibility.py`, `clone_classify.py`, then the five `chart_*.py` — so every
 CSV and every PNG is regenerated from the current dataset. It is the canonical
 answer to "the data changed; make the pictures match."
 
-`make clone` (≡ `py phase3.py --clone-only`) materializes the Phase 3 frame and
+`make clone` (≡ `py clone_classify.py --clone-only`) materializes the clone-classify frame and
 sample if their CSVs are missing, then clones every sampled repository without
 classifying. It exists because cloning ~150 repositories is slow and
 network-bound and is best done separately (e.g. in the background). It is
 idempotent — repositories already under `clones/` are reused, not re-cloned.
 
-`make phase3` (≡ `py phase3.py`) is the full Phase 3 run: it clones the missing
+`make classify` (≡ `py clone_classify.py`) is the full clone-classify run: it clones the missing
 repositories and classifies every sampled reference into one of six buckets
 (`never`, `deleted_before_anchor`, `created_later`, `renamed`,
-`alternative_path`, `other`), writing `data/phase3_results.csv`.
+`alternative_path`, `other`), writing `data/classification_results.csv`.
 
 ### What is and is not deterministic
 
@@ -169,7 +169,7 @@ cannot drift), and `extract_accessibility.py` applies a fixed vocabulary plus a
 fixed "verifiable" rule (a `shall|must` imperative OR a measurable threshold) to
 every non-empty line.
 
-The **git-clone stage is not reproducible across time.** `phase3.py` clones each
+The **git-clone stage is not reproducible across time.** `clone_classify.py` clones each
 sampled repository from `https://github.com/<owner>/<repo>.git`, and GitHub
 repositories are *mutable*: commits are added, history is rewritten (force-push),
 and repositories are deleted or renamed. Two runs that re-clone from scratch on
@@ -180,8 +180,8 @@ deterministic ones for exactly that reason. To bound the effect:
 
 - **Frozen clones.** `clone_repo()` is idempotent: it reuses any repository
   already under `clones/` (verified with `git rev-parse --verify HEAD`) and only
-  clones the missing ones. Re-running `make phase3` (or `make charts`) on the
-  same checkout reproduces `phase3_results.csv` exactly; the non-determinism
+  clones the missing ones. Re-running `make classify` (or `make charts`) on the
+  same checkout reproduces `classification_results.csv` exactly; the non-determinism
   appears only if you delete `clones/` and re-clone.
 - **`ALL_BRANCHES = True`.** "never" is the conservative reading — the path was
   never committed on *any* ref, so an unmerged feature branch counts as
@@ -191,23 +191,23 @@ deterministic ones for exactly that reason. To bound the effect:
 - **Failures are recorded, not guessed.** A repository that cannot be cloned
   (deleted, renamed, made private, network error) is listed at the end of the run
   and excluded from the denominators.
-- **The committed CSV records outcomes, not raw evidence.** `data/phase3_results.csv`
+- **The committed CSV records outcomes, not raw evidence.** `data/classification_results.csv`
   stores each reference's bucket and its `anchor_sha`, but not the commit SHAs that
   first added, deleted, or renamed the path (`classify()` discards them). The
   aggregate rates therefore reproduce from the committed CSV alone; auditing an
   individual classification — especially `never` (the dominant class), which is
-  *negative* evidence (no commit adds the path) — requires re-running `phase3.py`
+  *negative* evidence (no commit adds the path) — requires re-running `clone_classify.py`
   with the clones.
 
-### The Phase 3 sample
+### The clone-classify sample
 
-`phase3.py` does not classify all 17,799 clean-path references — it classifies a
+`clone_classify.py` does not classify all 17,799 clean-path references — it classifies a
 **stratified sample of repositories**. The frame joins `taxonomy_e0.csv` to
 `spec_files` (for `repo_stars` / `repo_language`), buckets by stars (`0–9`,
 `10–99`, `100+`), and draws a fixed number of repositories per bucket —
 `TARGETS = {"0-9": 50, "10-99": 45, "100+": 57}` — allocated proportionally to
 the dominant language within each bucket (largest-remainder). The draw uses a
-fixed seed (`SEED = 42`), so `data/phase3_sample.csv` is reproducible; the `100+`
+fixed seed (`SEED = 42`), so `data/classification_sample.csv` is reproducible; the `100+`
 bucket is a census (57 = every qualifying repository), not a sample. In the run
 committed here the sample is 152 repositories (50/45/57); 15 failed to clone and
 were excluded, leaving 137 classified repositories and 1,298 references. All
@@ -222,13 +222,13 @@ bucket exhaustive.
 ├── m0_sample_stats.py … m9_discovery_summary.py   # the ten milestones
 ├── taxonomy.py                # path classifier → taxonomy_e0.csv
 ├── extract_accessibility.py   # accessibility scan → accessibility_requirements.csv
-├── phase3.py                  # git-clone + classify → phase3_results.csv
+├── clone_classify.py                  # git-clone + classify → classification_results.csv
 ├── chart_census.py … chart_bridge.py   # CSV → PNG
 ├── chart_utils.py             # chart staleness helper (make charts hints)
 ├── db.py                      # dataset paths
 ├── reasoning.md               # the line of reasoning (why each step)
 ├── reproduction-steps.md      # the research log (how to reproduce)
-├── Makefile                   # install / run / test / charts / clone / phase3 / clean
+├── Makefile                   # install / run / test / charts / clone / classify / clean
 ├── requirements.txt
 └── data/                      # committed CSVs + chart PNGs
 ```

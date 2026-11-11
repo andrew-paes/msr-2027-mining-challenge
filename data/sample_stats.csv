@@ -1,2 +1,2 @@
-n_lines_n,n_lines_mean,n_lines_median,n_lines_skew,n_lines_shapiro_p,pct_archived,n_role_archived,n_role_living,n_role_na,n_role_change_proposal,n_role_feature,n_role_config
-28583,90.8,56.0,9.1,1.114487471353844e-80,51.5,14708,4985,4524,2196,1781,389
+n_lines_n,n_lines_mean,n_lines_median,n_lines_skew,n_lines_shapiro_p,pct_archived,n_role_archived,n_role_living,n_role_na,n_role_change_proposal,n_role_feature,n_role_config,n_tool_openspec,n_tool_speckit,n_tool_docs_embedded,n_tool_specweave,n_tool_moai,n_tool_specs_generic,n_tool_codex,n_tool_kitty_specs,n_tool_adhoc_other,n_tool_conductor,n_tool_dot_specs,n_tool_claude_code,n_tool_root_bare,n_tool_trae,n_tool_agent_os,n_tool_gsd,n_tool_opencode,n_tool_caffeine,n_tool_kilocode,n_tool_zenflow,n_tool_cursor
+28583,90.8,56.0,11.4,1.114487471353844e-80,51.5,14708,4985,4524,2196,1781,389,22132,1863,1500,962,648,484,266,260,253,116,37,14,13,10,5,4,4,3,3,3,3

@@ -10,7 +10,7 @@ import pandas as pd
 HERE = Path(__file__).resolve().parent
 OUT_PNG = HERE / "data" / "chart_bridge.png"
 A11Y = HERE / "data" / "accessibility_requirements.csv"
-RES = HERE / "data" / "phase3_results.csv"
+RES = HERE / "data" / "classification_results.csv"
 
 BUCKETS = ["0-9", "10-99", "100+"]
 
@@ -27,7 +27,7 @@ def main():
 
     x = np.arange(len(BUCKETS))
     w = 0.38
-    fig, ax = plt.subplots(figsize=(6.5, 4))
+    fig, ax = plt.subplots(figsize=(5.2, 3.2))
     ax.bar(x - w / 2, never_rate[False], w, label="without accessibility", color="#1f77b4", edgecolor="white")
     ax.bar(x + w / 2, never_rate[True], w, label="with accessibility", color="#d62728", edgecolor="white")
     ax.set_xticks(x)

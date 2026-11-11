@@ -1,4 +1,4 @@
-"""Classify OpenSpec code refs marked done but absent at the anchor (Fase 1).
+"""Classify OpenSpec code refs marked done but absent at the anchor.
 
 Reads ``openspec_code_refs`` (task_done=1, anchor_sha not null,
 exists_at_anchor=0) and labels each code_path by shape using a three-level
@@ -54,6 +54,36 @@ def classify_path(code_path):
     if not has_dir and has_ext:
         return "bare_filename", "bare_ext"
     return "non_file", "bare_noext"
+
+
+def classify_spec_role(artifact_path):
+    """Return the OpenSpec lifecycle role encoded by a ``tasks.md`` path.
+
+    SpecMine's ``spec_files.spec_role`` is a pure function of the directory, so
+    a code reference's role is recovered from its ``artifact_path`` (the tasks.md
+    that holds the task). OpenSpec encodes the lifecycle in the path:
+
+      * ``openspec/changes/archive/...``        -> ``archived`` (a completed change)
+      * ``openspec/changes/<name>/...``         -> ``change_proposal`` (an active change)
+      * ``openspec/specs/<capability>/...``     -> ``living`` (the current truth)
+      * any other ``openspec/...``              -> ``na`` (scaffold / other)
+      * anything else                           -> ``non-openspec``
+
+    Note: ``tasks.md`` only exists under ``openspec/changes/``, so in practice a
+    reference is ``archived`` or ``change_proposal``; ``living`` has no tasks.
+    """
+    if not artifact_path:
+        return "non-openspec"
+    s = str(artifact_path)
+    if s.startswith("openspec/changes/archive/"):
+        return "archived"
+    if s.startswith("openspec/changes/"):
+        return "change_proposal"
+    if s.startswith("openspec/specs/"):
+        return "living"
+    if s.startswith("openspec/"):
+        return "na"
+    return "non-openspec"
 
 
 def main():

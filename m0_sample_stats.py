@@ -1,12 +1,12 @@
-# %% [0] M0 — Sample stats: is the data heavy-tailed?
+# %% [0] M0 — Sample stats: is the data strongly right-skewed?
 #   Question:    What does the SpecMine SAMPLE look like?
 #   Data:        SpecMine sample (v1.1): spec_content_features.n_lines,
-#                spec_files.spec_role
+#                spec_files.spec_role, spec_files.spec_tool
 #   Criterion:   mean / median / skew + Shapiro-Wilk (5,000-row subsample, the
-#                Shapiro-Wilk limit is n <= 5000); % of specs archived
-#   Result:      n_lines mean ~91, median ~56, skew ~9.1, Shapiro p ~ 0;
-#                ~51.5% of specs are archived
-#   Meaning:     heavy-tailed and non-normal -> justifies non-parametric tests
+#                Shapiro-Wilk limit is n <= 5000)
+#   Result:      n_lines mean ~91, median ~56, skew ~11.4, Shapiro p ~ 0
+#                (the spec_role composition is now an M1 input, not an M0 finding)
+#   Meaning:     strongly right-skewed and non-normal -> justifies non-parametric tests
 #                throughout the analysis
 # =====================================================================
 
@@ -57,19 +57,21 @@ else:
     n_lines = conn.execute("SELECT n_lines FROM feats WHERE n_lines IS NOT NULL").df()["n_lines"]
     spec_role = conn.execute("SELECT spec_role FROM files").df()["spec_role"]
 
-    # skew / shapiro on a 5,000-row subsample (Shapiro-Wilk limit is n <= 5000)
+    # skew on the full sample; shapiro on a 5,000-row subsample (n <= 5000 limit)
     s = n_lines if len(n_lines) <= 5000 else n_lines.sample(5000, random_state=0)
 
     role_counts = spec_role.value_counts().to_dict()
+    tool_counts = conn.execute("SELECT spec_tool FROM files").df()["spec_tool"].value_counts().to_dict()
 
     summary = pd.DataFrame([{
         "n_lines_n": int(len(n_lines)),
         "n_lines_mean": round(float(n_lines.mean()), 1),
         "n_lines_median": round(float(n_lines.median()), 1),
-        "n_lines_skew": round(float(stats.skew(s)), 1),
+        "n_lines_skew": round(float(stats.skew(n_lines)), 1),
         "n_lines_shapiro_p": float(stats.shapiro(s).pvalue),
         "pct_archived": round(float((spec_role == "archived").mean() * 100), 1),
         **{f"n_role_{k}": v for k, v in sorted(role_counts.items(), key=lambda kv: -kv[1])},
+        **{f"n_tool_{k}": v for k, v in sorted(tool_counts.items(), key=lambda kv: -kv[1])},
     }])
 
     summary.to_csv(CSV, index=False)

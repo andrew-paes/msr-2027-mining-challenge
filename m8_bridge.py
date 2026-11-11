@@ -1,7 +1,7 @@
-# %% [0] M8 — Phase 3 + Bridge: how many are truly "never"?
+# %% [0] M8 — clone-classify + Bridge: how many are truly "never"?
 #   Question:    Of the done-but-missing, how many are genuinely never implemented
 #                (vs renamed or created later)? Does accessibility make it worse?
-#   Data:        data/phase3_results.csv + data/accessibility_requirements.csv
+#   Data:        data/classification_results.csv + data/accessibility_requirements.csv
 #   Criterion:   classify_ref() 5 buckets (git log --diff-filter=A / --follow);
 #                never rate by maturity and by accessibility
 #   Result:      never 54.5% (median 66.7% per repo); never/deleted inverts with
@@ -19,12 +19,12 @@ import pandas as pd
 from chart_utils import chart_status
 
 HERE = Path(__file__).resolve().parent
-RES = HERE / "data" / "phase3_results.csv"
+RES = HERE / "data" / "classification_results.csv"
 A11Y = HERE / "data" / "accessibility_requirements.csv"
 TAXONOMY = HERE / "data" / "taxonomy_e0.csv"
 
 if not RES.exists():
-    sys.exit("phase3_results.csv not found. Run phase3.py (needs git clone). See README.")
+    sys.exit("classification_results.csv not found. Run clone_classify.py (needs git clone). See README.")
 if not A11Y.exists():
     sys.exit("accessibility_requirements.csv not found. Run extract_accessibility.py.")
 
@@ -53,12 +53,17 @@ for b in ["0-9", "10-99", "100+"]:
     nn = sub[~sub.has_a11y]["classification"].eq("never").mean()
     print(f"  {b}: a11y {na * 100:.1f}% vs no-a11y {nn * 100:.1f}%")
 
-for name, script in [("phase3_by_bucket.png", "chart_phase3.py"), ("chart_bridge.png", "chart_bridge.py")]:
+for name, script, sources in [
+    ("chart_outcomes.png", "chart_outcomes.py", [RES]),
+    ("chart_by_bucket.png", "chart_by_bucket.py", [RES]),
+    ("chart_bridge.png", "chart_bridge.py", [RES, A11Y]),
+    ("chart_bridge_repo.png", "chart_bridge_repo.py", [RES, A11Y]),
+]:
     png = HERE / "data" / name
     if not png.exists():
         subprocess.run(["python", str(HERE / script)], check=True)
         print(f"chart: data/{name}")
     else:
-        _, stale = chart_status(png, RES, A11Y, TAXONOMY)
+        _, stale = chart_status(png, *sources)
         note = "  [STALE - run 'make charts']" if stale else ""
         print(f"chart: data/{name}{note}")

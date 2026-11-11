@@ -1,4 +1,4 @@
-"""Phase 3 — classify "done but missing" references (renames / timing).
+"""clone-classify — classify "done but missing" references (renames / timing).
 
 Single script: materialize frame -> stratified sample -> clone -> classify.
 
@@ -17,9 +17,9 @@ Note: the taxonomy column is ``shape``, accessed as ``df["shape"]`` (bracket
 notation), because ``df.shape`` is the DataFrame's (rows, cols) attribute.
 
 Usage:
-    python phase3.py --draw-only          # materialize frame + draw sample
-    python phase3.py --repos a,b,c        # pilot: classify only these repos
-    python phase3.py                      # full run over the sample
+    python clone_classify.py --draw-only          # materialize frame + draw sample
+    python clone_classify.py --repos a,b,c        # pilot: classify only these repos
+    python clone_classify.py                      # full run over the sample
 """
 import argparse
 import posixpath
@@ -38,9 +38,9 @@ import db
 HERE = Path(__file__).resolve().parent
 TAXONOMY = HERE / "data" / "taxonomy_e0.csv"
 SPEC_FILES = Path(db.SPECMINE_DATA) / "spec_files.parquet"
-FRAME_CSV = HERE / "data" / "frame_phase3.csv"
-SAMPLE_CSV = HERE / "data" / "phase3_sample.csv"
-OUT_CSV = HERE / "data" / "phase3_results.csv"
+FRAME_CSV = HERE / "data" / "classification_frame.csv"
+SAMPLE_CSV = HERE / "data" / "classification_sample.csv"
+OUT_CSV = HERE / "data" / "classification_results.csv"
 CLONE_DIR = HERE / "clones"
 SEED = 42
 

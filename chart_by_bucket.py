@@ -1,11 +1,11 @@
-"""Generate the Phase 3 stacked-bar chart (never/deleted by maturity).
+"""Generate the clone-classify stacked-bar chart (never/deleted by maturity).
 
-Writes ``data/phase3_by_bucket.png`` — a stacked bar of the classification
+Writes ``data/chart_by_bucket.png`` — a stacked bar of the classification
 outcomes by star bucket, with ``never`` (red) and ``deleted_before_anchor``
 (orange) highlighted so the maturity inversion (R3) is visible at a glance.
 
 Usage:
-    python chart_phase3.py
+    python chart_by_bucket.py
 """
 from pathlib import Path
 
@@ -15,8 +15,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 HERE = Path(__file__).resolve().parent
-RESULTS = HERE / "data" / "phase3_results.csv"
-OUT_PNG = HERE / "data" / "phase3_by_bucket.png"
+RESULTS = HERE / "data" / "classification_results.csv"
+OUT_PNG = HERE / "data" / "chart_by_bucket.png"
 
 ORDER = ["never", "deleted_before_anchor", "created_later",
          "renamed", "alternative_path", "other"]
@@ -39,7 +39,7 @@ def main():
     bucket_refs_pct = bucket_refs.div(bucket_refs.sum(axis=1), axis=0) * 100
     bucket_refs_pct = bucket_refs_pct.reindex(["0-9", "10-99", "100+"])
 
-    fig, ax = plt.subplots(figsize=(7, 4.5))
+    fig, ax = plt.subplots(figsize=(5.6, 3.6))
     bucket_refs_pct[ORDER].plot(
         kind="bar", stacked=True, ax=ax, edgecolor="white",
         color=[COLORS[c] for c in ORDER],
