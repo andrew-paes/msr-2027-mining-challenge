@@ -1,33 +1,81 @@
-"""Generate the accessibility chart: verifiable share by spec tool."""
+"""Generate the accessibility chart: verifiable share by spec tool.
+
+Usage:
+    python chart_accessibility.py
+"""
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
+
+import chart_style as cs
 
 HERE = Path(__file__).resolve().parent
 OUT_PNG = HERE / "data" / "chart_accessibility.png"
 A11Y = HERE / "data" / "accessibility_requirements.csv"
+MIN_LINES = 500  # tools below this are too thin to show individually
+FORMAL = ("openspec", "speckit")
 
 
 def main():
-    df = pd.read_csv(A11Y)
-    g = df.groupby("spec_tool")["verifiable"].agg(["count", "mean"]).reset_index()
-    g = g[g["count"] >= 500].sort_values("mean", ascending=False)
-    g["mean_pct"] = g["mean"] * 100
+    cs.apply_style()
 
-    fig, ax = plt.subplots(figsize=(7, 4.5))
-    colors = ["#1f77b4" if t in ("openspec", "speckit") else "#7f7f7f" for t in g["spec_tool"]]
-    ax.barh(g["spec_tool"], g["mean_pct"], color=colors, edgecolor="white")
-    ax.set_xlabel("% of accessibility requirement lines that are verifiable")
-    ax.set_title("Verifiable accessibility requirements by spec tool")
-    for i, (_, r) in enumerate(g.iterrows()):
-        ax.text(r["mean_pct"], i, f"  {r['mean_pct']:.1f}%  (n={r['count']:,})", va="center")
-    ax.invert_yaxis()
+    df = pd.read_csv(A11Y)
+    grouped = df.groupby("spec_tool")["verifiable"].agg(["count", "mean"]).reset_index()
+    grouped = grouped[grouped["count"] >= MIN_LINES].sort_values("mean")
+    grouped["mean_pct"] = grouped["mean"] * 100
+
+    total_lines = len(df)
+    total_repos = df["repo_name"].nunique()
+    overall = df["verifiable"].mean() * 100
+    omitted = df["spec_tool"].nunique() - len(grouped)
+    is_formal = grouped["spec_tool"].isin(FORMAL)
+
+    fig, ax = plt.subplots(figsize=(8.6, 4.4))
+    bars = ax.barh(grouped["spec_tool"], grouped["mean_pct"],
+                   color=[cs.VERMILLION if flag else cs.BLUE for flag in is_formal],
+                   edgecolor=cs.INK, linewidth=0.8, height=0.62)
+    for bar, flag in zip(bars, is_formal):
+        if flag:
+            bar.set_hatch("///")
+
+    cs.hlabel(
+        ax, bars,
+        [f"{pct:.1f}%  (n = {cs.fmt_int(n)} lines)"
+         for pct, n in zip(grouped["mean_pct"], grouped["count"])],
+        fontsize=9.5,
+        backdrop=True,  # the overall reference line crosses the label column
+    )
+    cs.pct_axis(ax, "x", 0)
+    cs.hgrid(ax)
+    ax.set_xlabel("accessibility requirement lines that are verifiable")
+
+    cs.legend(
+        ax,
+        [("formal spec tool (openspec, speckit)", cs.VERMILLION, "///"),
+         ("informal or embedded spec", cs.BLUE, "")],
+        loc="lower right",
+    )
+    cs.title(
+        ax,
+        "Formal spec tools write testable accessibility requirements",
+        "share of requirement lines that are verifiable, by spec tool; the dotted line "
+        f"marks the overall {overall:.1f}% (n = {cs.fmt_int(total_lines)} lines in "
+        f"{cs.fmt_int(total_repos)} repositories)",
+        width=76,
+    )
+
+    ax.axvline(overall, color=cs.INK, ls=":", lw=1.4)
+
+    cs.source_note(
+        fig,
+        f"Tools with fewer than {MIN_LINES} lines are omitted ({omitted} tools). "
+        "A line counts as verifiable when it carries a mandatory verb (shall, must) or "
+        "a measurable threshold (a number, a ratio, or a WCAG A/AA/AAA level).",
+    )
+
     fig.tight_layout()
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
-    print(f"saved {OUT_PNG}")
+    cs.save(fig, OUT_PNG)
 
 
 if __name__ == "__main__":

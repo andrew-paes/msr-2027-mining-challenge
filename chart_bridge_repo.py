@@ -9,11 +9,12 @@ Usage:
 """
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy import stats
+
+import chart_style as cs
 
 HERE = Path(__file__).resolve().parent
 RES = HERE / "data" / "classification_results.csv"
@@ -22,53 +23,73 @@ OUT_PNG = HERE / "data" / "chart_bridge_repo.png"
 
 
 def main():
+    cs.apply_style()
+
+    a11y_repos = set(pd.read_csv(A11Y, usecols=["repo_name"]).repo_name)
     res = pd.read_csv(RES)
-    a11y_repos = set(pd.read_csv(A11Y).repo_name)
     res["has_a11y"] = res.repo_name.isin(a11y_repos)
 
-    g = (
+    per_repo = (
         res.groupby("repo_name")
         .agg(never_rate=("classification", lambda s: (s == "never").mean() * 100),
              has_a11y=("has_a11y", "first"))
         .reset_index()
     )
 
-    without = g[~g.has_a11y]["never_rate"].to_numpy()
-    with_a11y = g[g.has_a11y]["never_rate"].to_numpy()
+    without = per_repo[~per_repo.has_a11y]["never_rate"].to_numpy()
+    with_a11y = per_repo[per_repo.has_a11y]["never_rate"].to_numpy()
+    _u, p_value = stats.mannwhitneyu(without, with_a11y, alternative="two-sided")
 
-    fig, ax = plt.subplots(figsize=(5.1, 3.5))
-    groups = [without, with_a11y]
-    labels = [f"without accessibility requirements\n(n = {len(without)})",
-              f"with accessibility requirements\n(n = {len(with_a11y)})"]
-
+    fig, ax = plt.subplots(figsize=(7.6, 4.2))
     ax.boxplot(
-        groups, positions=[0, 1], widths=0.4, patch_artist=True,
+        [without, with_a11y], positions=[0, 1], widths=0.42, patch_artist=True,
         showfliers=False,
-        medianprops=dict(color="#d62728", lw=2),
-        boxprops=dict(facecolor="#e8e8e8", edgecolor="#555555"),
-        whiskerprops=dict(color="#555555"),
-        capprops=dict(color="#555555"),
+        medianprops=dict(color=cs.INK, lw=2.2),
+        boxprops=dict(facecolor="#ececec", edgecolor=cs.INK, linewidth=0.8),
+        whiskerprops=dict(color=cs.INK),
+        capprops=dict(color=cs.INK),
     )
 
     rng = np.random.default_rng(42)
-    for pos, vals in zip([0, 1], groups):
-        jitter = rng.uniform(-0.13, 0.13, len(vals))
-        ax.scatter(pos + jitter, vals, s=16, alpha=0.55, color="#1f77b4",
+    for position, values in zip([0, 1], [without, with_a11y]):
+        jitter = rng.uniform(-0.13, 0.13, len(values))
+        ax.scatter(position + jitter, values, s=18, alpha=0.6, color=cs.BLUE,
                    edgecolor="white", linewidth=0.4, zorder=3)
 
+    ax.set_ylim(-6, 118)
+    ax.set_xlim(-0.55, 1.55)
+    ax.set_yticks([0, 20, 40, 60, 80, 100])
+    cs.pct_axis(ax, "y", 0)
+    ax.grid(False, axis="x")
     ax.set_xticks([0, 1])
-    ax.set_xticklabels(labels)
-    ax.set_ylabel("% of 'done but missing' refs classified 'never' (per repository)")
-    ax.set_title("Repository-level never rate by accessibility requirements\n(Mann-Whitney U, two-sided, p = 0.169)", fontsize=10)
-    ax.set_ylim(-5, 110)
+    ax.set_xticklabels([
+        f"without accessibility requirements\n(n = {len(without)} repositories)",
+        f"with accessibility requirements\n(n = {len(with_a11y)} repositories)",
+    ])
+    ax.set_ylabel("never rate of the repository's missing references")
 
-    ax.text(0, 106, f"median {np.median(without):.1f}%", ha="center", fontsize=9, color="#333333")
-    ax.text(1, 106, f"median {np.median(with_a11y):.1f}%", ha="center", fontsize=9, color="#333333")
-    ax.text(0.5, -0.18, "Each dot represents one repository; red horizontal lines indicate group medians.", transform=ax.transAxes, ha="center", va="top", fontsize=8, color="#555555")
+    for position, values in zip([0, 1], [without, with_a11y]):
+        ax.text(position, 110, f"median {np.median(values):.1f}%", ha="center",
+                va="center", fontsize=9.5, color=cs.INK)
+
+    verdict = "not significant at 0.05" if p_value >= 0.05 else "significant at 0.05"
+    cs.title(
+        ax,
+        "The repository is the unit of the comparison",
+        f"per-repository never rate, with and without accessibility requirements "
+        f"(Mann-Whitney U, two-sided, p = {p_value:.3f} — {verdict})",
+        width=76,
+    )
+
+    cs.source_note(
+        fig,
+        "Each dot is one repository and the thick horizontal line is the group median; "
+        "the two groups overlap heavily, which is why the difference is reported as "
+        "descriptive rather than as an effect.",
+    )
 
     fig.tight_layout()
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
-    print(f"saved {OUT_PNG}")
+    cs.save(fig, OUT_PNG)
 
 
 if __name__ == "__main__":

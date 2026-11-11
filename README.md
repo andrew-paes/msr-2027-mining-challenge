@@ -119,8 +119,9 @@ or `make install`.
 ## Usage
 
 ```bash
-make run       # start the Streamlit walkthrough (M0–M8 + Discovery)
-make test      # validate the app headlessly
+make run       # start the Streamlit walkthrough (M0–M8 + M9)
+make test      # check the chart rules, then validate the app headlessly
+make check     # chart rules only (alt text, dpi, contrast, no hardcoded numbers)
 make charts    # regenerate all derived CSVs + charts from the dataset
 make clone     # pre-clone the clone-classify sample (network-bound)
 make classify    # run clone-classify (clone-if-needed + classify)
@@ -145,7 +146,7 @@ committed so results can be checked without re-running the expensive stages.
 ### The commands
 
 `make charts` re-runs the whole chain in dependency order — `taxonomy.py`,
-`extract_accessibility.py`, `clone_classify.py`, then the five `chart_*.py` — so every
+`extract_accessibility.py`, `clone_classify.py`, then the fourteen `chart_*.py` — so every
 CSV and every PNG is regenerated from the current dataset. It is the canonical
 answer to "the data changed; make the pictures match."
 
@@ -214,23 +215,50 @@ were excluded, leaving 137 classified repositories and 1,298 references. All
 "never / deleted / …" rates are therefore sample estimates, with the `100+`
 bucket exhaustive.
 
+## Chart accessibility, legibility and consistency
+
+The fourteen figures are generated, not hand-tuned, and they all go through
+`chart_style.py` — one set of type sizes, one palette, one way of writing a
+title, a label and a footnote. The rules are executable: `make check`
+(`check_charts.py`) fails when a figure breaks one of them.
+
+| Rule | Why | Where |
+|---|---|---|
+| Alt text for every figure, embedded in the PNG (`Description`) and in `data/chart_alttext.json` | a screen reader gets the finding, not a file name | `chart_style.alt_text`, `check_charts.py` |
+| The dashboard prints that alt text as the figure caption and offers the table behind it | the numbers stay reachable without seeing the picture | `app.py`, `chart_tables.py` |
+| Every palette colour ≥ 3:1 against white, and every filled shape carries a dark outline | WCAG 1.4.11 (non-text contrast): a segment boundary has to be perceivable | `chart_style.PALETTE`, `check_charts.py` |
+| The two dominant classes add a hatch texture and every wide segment is labelled | WCAG 1.4.1 (use of colour): colour is never the only channel | `chart_style.CLASSES`, `chart_by_bucket.py` |
+| Body text 11 pt, 200 dpi, figure width 7.4–10.6 in | readable in a ~1200 px container instead of upscaled or shrunk | `chart_style.apply_style` |
+| No hardcoded result in a title, subtitle or note | a number typed into a title goes stale silently when the data changes; the checker parses the strings actually rendered | `check_charts.rendered_literals` |
+| A staleness badge on every figure in the dashboard | "the data changed, the picture did not" is visible instead of silent | `chart_utils.CHART_SOURCES` |
+| The M9 gallery lists every figure exactly once | the summary tab is the one screen with the whole arc; a chart added later cannot be forgotten there | `check_charts.gallery_pngs` |
+
+Two honest limits. A six-class stack cannot satisfy 3:1 *between adjacent
+fills* — 3:1 per step over six steps would need a 243:1 range — so the outlines,
+the hatches and the direct labels are part of the design, not decoration. And
+the figures are raster PNGs; the paper should re-render them as vector (`.pdf`)
+from the same scripts if the venue requires it.
+
 ## Project structure
 
 ```
 .
-├── app.py                     # Streamlit walkthrough (M0–M8 + Discovery)
+├── app.py                     # Streamlit walkthrough (M0–M8 + the M9 gallery)
 ├── m0_sample_stats.py … m9_discovery_summary.py   # the ten milestones
 ├── taxonomy.py                # path classifier → taxonomy_e0.csv
 ├── extract_accessibility.py   # accessibility scan → accessibility_requirements.csv
 ├── clone_classify.py                  # git-clone + classify → classification_results.csv
-├── chart_census.py … chart_bridge.py   # CSV → PNG
-├── chart_utils.py             # chart staleness helper (make charts hints)
+├── chart_*.py                 # CSV / parquet → PNG (one script per figure)
+├── chart_style.py             # shared type sizes, palette, titles, save + alt text
+├── chart_tables.py            # the table behind each figure (dashboard expander)
+├── chart_utils.py             # chart dependencies (staleness) helper
+├── check_charts.py            # figure rules: alt text, dpi, contrast, no frozen numbers
 ├── db.py                      # dataset paths
 ├── reasoning.md               # the line of reasoning (why each step)
 ├── reproduction-steps.md      # the research log (how to reproduce)
-├── Makefile                   # install / run / test / charts / clone / classify / clean
+├── Makefile                   # install / run / test / check / charts / clone / classify / clean
 ├── requirements.txt
-└── data/                      # committed CSVs + chart PNGs
+└── data/                      # committed CSVs + chart PNGs + chart_alttext.json
 ```
 
 ## Documentation

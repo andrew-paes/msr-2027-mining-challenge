@@ -9,10 +9,10 @@ else
 PYTHON := python3
 endif
 
-.PHONY: help install run test charts clone classify clean
+.PHONY: help install run test check charts clone classify clean
 
 help:
-	@echo "Targets: install | run | test | charts | clone | classify | clean"
+	@echo "Targets: install | run | test | check | charts | clone | classify | clean"
 
 install:
 	$(PYTHON) -m pip install -r requirements.txt
@@ -20,8 +20,14 @@ install:
 run:
 	$(PYTHON) -m streamlit run app.py
 
-test:
+# Headless validation: chart rules first (alt text, dpi, contrast, no hardcoded
+# numbers), then the dashboard must build without exceptions.
+test: check
 	$(PYTHON) test_app.py
+
+# Chart rules only — fast, no Streamlit involved.
+check:
+	$(PYTHON) check_charts.py
 
 # Pre-clone every repo in the clone-classify sample (slow, network-bound). Runs the
 # materialize + draw-sample steps first if their CSVs are missing. Skipped on

@@ -1,70 +1,80 @@
-"""Generate the clone-classify overall-outcome chart (the "84% genuinely absent" view).
+"""Generate the clone-classify overall-outcome chart (the genuinely-absent view).
 
-Writes ``data/chart_outcomes.png`` — a horizontal bar of the classification
-distribution across all sampled refs, highlighting "genuinely absent"
-(never + deleted_before_anchor) so the 84% is visible at a glance.
+Writes ``data/chart_outcomes.png`` — the classification distribution across all
+sampled references, so "genuinely absent" (never + deleted_before_anchor) is
+visible at a glance.
 
 Usage:
     python chart_outcomes.py
 """
 from pathlib import Path
 
-import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
+import chart_style as cs
+
 HERE = Path(__file__).resolve().parent
 RESULTS = HERE / "data" / "classification_results.csv"
+SAMPLE_FRAME = HERE / "data" / "classification_sample.csv"
 OUT_PNG = HERE / "data" / "chart_outcomes.png"
-
-ORDER = ["never", "deleted_before_anchor", "created_later",
-         "renamed", "alternative_path", "other"]
-COLORS = {
-    "never": "#d62728",
-    "deleted_before_anchor": "#ff7f0e",
-    "created_later": "#1f77b4",
-    "renamed": "#2ca02c",
-    "alternative_path": "#9467bd",
-    "other": "#7f7f7f",
-}
-LABELS = {
-    "never": "never (never committed)",
-    "deleted_before_anchor": "deleted before anchor",
-    "created_later": "created later",
-    "renamed": "renamed",
-    "alternative_path": "alternative path",
-    "other": "other",
-}
 
 
 def main():
+    cs.apply_style()
+
     df = pd.read_csv(RESULTS)
     counts = df["classification"].value_counts()
-    total = counts.sum()
+    total = len(df)
+    repos = df["repo_name"].nunique()
+    drawn = len(pd.read_csv(SAMPLE_FRAME)) if SAMPLE_FRAME.exists() else None
 
-    # only categories actually observed (alternative_path may be 0)
-    order = [k for k in ORDER if k in counts.index]
-    # reverse so the largest (never) is drawn at the top
-    names = [LABELS[k] for k in order[::-1]]
-    vals = [counts[k] / total * 100 for k in order[::-1]]
-    colors = [COLORS[k] for k in order[::-1]]
+    # only the classes actually observed, largest at the top
+    observed = [key for key, *_ in cs.CLASSES if key in counts.index]
+    order = list(reversed(observed))
+    names = [cs.CLASS_LABEL[key] for key in order]
+    values = [counts[key] / total * 100 for key in order]
+    colors = [cs.CLASS_COLOR[key] for key in order]
+    hatches = [cs.CLASS_HATCH[key] for key in order]
 
-    fig, ax = plt.subplots(figsize=(5.6, 2.9))
-    bars = ax.barh(names, vals, color=colors, edgecolor="white")
-    ax.set_xlabel("%% of 'done but missing' references (n = %d)" % total)
-    ax.set_title("Outcome of 'done but missing' references (overall)")
-    for b, v in zip(bars, vals):
-        ax.text(v + 0.5, b.get_y() + b.get_height() / 2, f"{v:.1f}%", va="center")
+    fig, ax = plt.subplots(figsize=(8.0, 3.2))
+    bars = ax.barh(names, values, color=colors, edgecolor=cs.INK, linewidth=0.8,
+                   height=0.58)
+    for bar, hatch in zip(bars, hatches):
+        bar.set_hatch(hatch)
 
-    absent = (counts.get("never", 0) + counts.get("deleted_before_anchor", 0)) / total * 100
-    ax.text(0.98, 0.02, f"{absent:.1f}% genuinely absent\n(never + deleted)",
-            transform=ax.transAxes, ha="right", va="bottom",
-            fontsize=9, color="#333333")
-    ax.set_xlim(0, 65)
+    ax.set_xlim(0, 62)
+    cs.hlabel(ax, bars, [f"{value:.1f}%" for value in values], fontsize=10)
+    cs.pct_axis(ax, "x", 0)
+    cs.hgrid(ax)
+    ax.set_xlabel("share of the sampled done-but-missing references")
+
+    absent = (counts.get("never", 0) + counts.get("deleted_before_anchor", 0))
+    ax.text(0.985, 0.06,
+            f"{absent / total * 100:.1f}% genuinely absent\n"
+            "(never + deleted before anchor)",
+            transform=ax.transAxes, ha="right", va="bottom", fontsize=9.5,
+            color=cs.INK)
+
+    cs.title(ax, "Most of the missing were never implemented",
+             f"classification of the {cs.fmt_int(total)} sampled references in {repos} "
+             "repositories; the two absent classes carry a hatch texture",
+             width=72)
+
+    cs.source_note(
+        fig,
+        (f"The sample is {repos} of the {drawn} repositories drawn for clone-classify "
+         f"({drawn - repos} could not be cloned), so these are sample estimates, not "
+         "census counts"
+         if drawn else
+         f"The sample is {repos} classified repositories, so these are sample estimates")
+        + "; the 100+ star bucket is exhaustive. All-branch classification makes "
+        "'never' the conservative reading: an unmerged feature branch counts as "
+        "implemented.",
+    )
+
     fig.tight_layout()
-    fig.savefig(OUT_PNG, dpi=150, bbox_inches="tight")
-    print(f"saved {OUT_PNG}")
+    cs.save(fig, OUT_PNG)
 
 
 if __name__ == "__main__":

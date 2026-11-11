@@ -13,42 +13,27 @@
 
 from pathlib import Path
 
-from chart_utils import chart_status
-from db import SAMPLE_SPECMINE_DATA, SPECMINE_DATA
+from chart_utils import chart_sources, chart_status
 
 HERE = Path(__file__).resolve().parent
-SAMPLE = Path(SAMPLE_SPECMINE_DATA)
-FULL = Path(SPECMINE_DATA)
 
+# (png, meaning, script) — the input files each chart depends on live in
+# chart_utils.CHART_SOURCES, so there is one list of dependencies, not two.
 CHARTS = [
-    ("chart_m0_sample.png", "M0 - strongly right-skewed n_lines", "chart_m0.py",
-     [SAMPLE / "spec_content_features.parquet", SAMPLE / "spec_files.parquet"]),
-    ("chart_m0_tools.png", "M0 - 77.4% OpenSpec (17 tools)", "chart_m0_tools.py",
-     [SAMPLE / "spec_files.parquet"]),
-    ("chart_m1_sample_full.png", "M1 - sample 6.1% of specs, 89% of PRs", "chart_m1.py",
-     [SAMPLE / "spec_files.parquet", FULL / "spec_files.parquet"]),
-    ("chart_m1_tools.png", "M1 - 58.4% OpenSpec in the full", "chart_m1_tools.py",
-     [FULL / "spec_files.parquet"]),
-    ("chart_m2_pivot.png", "M2 - all PRs merged -> traceability", "chart_m2.py",
-     [FULL / "pull_requests.parquet"]),
-    ("chart_census.png", "M3 - 10.3% of 332,168 with-anchor (8,746 without); 17.7% vs 9.0%; 73.5% in archived", "chart_census.py",
-     [FULL / "openspec_code_refs.parquet"]),
-    ("chart_m4_discovery.png", "M4 - exists_at_anchor not binary", "chart_m4.py",
-     [FULL / "openspec_code_refs.parquet"]),
-    ("chart_taxonomy.png", "M5 - 91% real file references", "chart_taxonomy.py",
-     [HERE / "data" / "taxonomy_e0.csv", FULL / "openspec_code_refs.parquet"]),
-    ("chart_accessibility.png", "M6 - 27.1% verifiable", "chart_accessibility.py",
-     [HERE / "data" / "accessibility_requirements.csv", FULL / "spec_files.parquet"]),
-    ("chart_m7_calibration.png", "M7 - 15.2% rename (94.8% tautological)", "chart_m7.py",
-     [FULL / "openspec_code_refs.parquet"]),
-    ("chart_outcomes.png", "M8 - 84% genuinely absent (never + deleted)", "chart_outcomes.py",
-     [HERE / "data" / "classification_results.csv"]),
-    ("chart_by_bucket.png", "M8 - never/deleted inverts with maturity", "chart_by_bucket.py",
-     [HERE / "data" / "classification_results.csv"]),
-    ("chart_bridge.png", "M8 - accessibility -> more never", "chart_bridge.py",
-     [HERE / "data" / "classification_results.csv", HERE / "data" / "accessibility_requirements.csv"]),
-    ("chart_bridge_repo.png", "M8 - repo-level never rate (Mann-Whitney p=0.17)", "chart_bridge_repo.py",
-     [HERE / "data" / "classification_results.csv", HERE / "data" / "accessibility_requirements.csv"]),
+    ("chart_m0_sample.png", "M0 - strongly right-skewed n_lines", "chart_m0.py"),
+    ("chart_m0_tools.png", "M0 - one tool dominates the sample", "chart_m0_tools.py"),
+    ("chart_m1_sample_full.png", "M1 - sample 6.1% of specs, 89% of PRs", "chart_m1.py"),
+    ("chart_m1_tools.png", "M1 - one tool dominates the full corpus", "chart_m1_tools.py"),
+    ("chart_m2_pivot.png", "M2 - all PRs merged -> traceability", "chart_m2.py"),
+    ("chart_census.png", "M3 - 10.3% of 332,168 with-anchor (8,746 without); 17.7% vs 9.0%; 73.5% in archived", "chart_census.py"),
+    ("chart_m4_discovery.png", "M4 - exists_at_anchor not binary", "chart_m4.py"),
+    ("chart_taxonomy.png", "M5 - 91% real file references", "chart_taxonomy.py"),
+    ("chart_accessibility.png", "M6 - 27.1% verifiable", "chart_accessibility.py"),
+    ("chart_m7_calibration.png", "M7 - 15.2% rename (bare filenames measure the resolver)", "chart_m7.py"),
+    ("chart_outcomes.png", "M8 - 84% genuinely absent (never + deleted)", "chart_outcomes.py"),
+    ("chart_by_bucket.png", "M8 - never/deleted inverts with maturity", "chart_by_bucket.py"),
+    ("chart_bridge.png", "M8 - accessibility -> more never", "chart_bridge.py"),
+    ("chart_bridge_repo.png", "M8 - repo-level never rate (Mann-Whitney, p in the figure)", "chart_bridge_repo.py"),
 ]
 
 print("=== M9 — the arc of the discovery ===")
@@ -64,10 +49,10 @@ print("8. 84% are genuinely absent: 54% never + 30% written-then-removed; the")
 print("   never/deleted composition inverts with maturity; accessibility")
 print("   correlates with more never (M8).")
 
-print("\n=== the five result charts ===")
-for fname, meaning, script, sources in CHARTS:
+print("\n=== the fourteen result charts ===")
+for fname, meaning, script in CHARTS:
     p = HERE / "data" / fname
-    exists, stale = chart_status(p, *sources)
+    exists, stale = chart_status(p, *chart_sources(fname))
     if not exists:
         status = f"MISSING - run 'python {script}'"
     elif stale:

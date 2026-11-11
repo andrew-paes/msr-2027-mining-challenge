@@ -1,10 +1,18 @@
 """Streamlit dashboard: the SpecMine discovery walkthrough (M0-M8 + Discovery).
 
 Run with:  py -m streamlit run app.py
+
+Every figure is shown with its accessible description as the caption (Streamlit
+uses ``caption`` as the image's alt text) and with the table it was drawn from,
+so the numbers are reachable without seeing the picture.
 """
 from pathlib import Path
 
 import streamlit as st
+
+import chart_style as cs
+import chart_tables
+from chart_utils import chart_sources, chart_status
 
 st.set_page_config(page_title="MSR 2027 - Discovery walkthrough", layout="wide")
 st.title("SpecMine discovery walkthrough")
@@ -27,12 +35,27 @@ def caption(text):
     )
 
 
-def show_png(fname):
-    p = DATA_DIR / fname
-    if p.exists():
-        st.image(str(p), width="stretch")
-    else:
-        st.info(f"{fname} not found - run the matching chart_*.py script.")
+@st.cache_data(show_spinner=False)
+def table_for(fname):
+    """The data behind a chart (cached: some loaders read the parquet layer)."""
+    return chart_tables.table_for(fname)
+
+
+def show_png(fname, with_data=True):
+    path = DATA_DIR / fname
+    if not path.exists():
+        st.info(f"{fname} not found - run `make charts`.")
+        return
+    st.image(str(path), caption=cs.alt_text(fname), width="stretch")
+    _exists, stale = chart_status(path, *chart_sources(fname))
+    if stale:
+        st.warning(f"`{fname}` is older than its data - run `make charts`.")
+    if not with_data:
+        return
+    table = table_for(fname)
+    if table is not None:
+        with st.expander("Dados deste gráfico"):
+            st.dataframe(table, width="stretch", hide_index=True)
 
 
 t0, t1, t2, t3, t4, t5, t6, t7, t8, td = st.tabs(
@@ -109,17 +132,17 @@ with t7:
     caption(
         "Among the references with a clean relative path that DO resolve, 15.2% resolve at a "
         "different path than written - the rename/normalization burden the next layer must "
-        "recover. (The 94.8% for bare names is tautological.)"
+        "recover. (The rate for bare filenames measures the resolver, not the repository.)"
     )
     show_png("chart_m7_calibration.png")
 
 with t8:
     phase("M8 - clone-classify + Bridge: how many are truly 'never'?")
     caption(
-        "84% are genuinely absent at the anchor: 54% never (median 66.7% per repo) + 30% "
-        "written-then-removed. The never/deleted composition inverts with maturity (churn in "
-        "0-star, non-implementation in serious repos), and repositories with accessibility "
-        "requirements have more 'never' (60.4% vs 41.5%)."
+        "84% are genuinely absent at the anchor: 54% never + 30% written-then-removed. The "
+        "never/deleted composition inverts with maturity (churn in 0-star, non-implementation in "
+        "serious repos), and repositories with accessibility requirements report more 'never' in "
+        "every star bucket than the ones without - an association, not an effect."
     )
     show_png("chart_outcomes.png")
     show_png("chart_by_bucket.png")
@@ -127,7 +150,7 @@ with t8:
     show_png("chart_bridge_repo.png")
 
 with td:
-    phase("Discovery - the full arc (M0 -> M8)")
+    phase("M9 - Discovery: the full arc (M0 -> M8)")
     caption(
         "10.3% done-but-missing (17.7% change_proposal vs 9.0% archived) -> 91% real files -> 84% genuinely absent (54% never + 30% "
         "deleted) -> the composition inverts with maturity -> accessibility correlates with "
@@ -135,17 +158,19 @@ with td:
     )
     for label, fname, meaning in [
         ("M0", "chart_m0_sample.png", "strongly right-skewed: skew 11.4"),
+        ("M0", "chart_m0_tools.png", "one tool dominates the sample"),
         ("M1", "chart_m1_sample_full.png", "sample = 6.1% of specs, 89% of PRs"),
+        ("M1", "chart_m1_tools.png", "the same tool dominates the full corpus"),
         ("M2", "chart_m2_pivot.png", "all 5,992 PRs merged -> scope to traceability"),
         ("M3", "chart_census.png", "34,227 = 10.3% done-but-missing; 17.7% change_proposal vs 9.0% archived"),
         ("M4", "chart_m4_discovery.png", "exists_at_anchor is 0/1/2/NULL, not binary"),
         ("M5", "chart_taxonomy.png", "91% real file references"),
         ("M6", "chart_accessibility.png", "27.1% verifiable"),
-        ("M7", "chart_m7_calibration.png", "15.2% rename (94.8% tautological)"),
+        ("M7", "chart_m7_calibration.png", "15.2% rename (bare filenames measure the resolver)"),
         ("M8", "chart_outcomes.png", "84% genuinely absent (54% never + 30% deleted)"),
         ("M8", "chart_by_bucket.png", "never/deleted inverts with maturity"),
         ("M8", "chart_bridge.png", "accessibility -> more never"),
-        ("M8", "chart_bridge_repo.png", "repo-level never rate (Mann-Whitney p=0.17)"),
+        ("M8", "chart_bridge_repo.png", "repo-level never rate (Mann-Whitney, p reported in the figure)"),
     ]:
         st.markdown(f"**{label}** - {meaning}")
-        show_png(fname)
+        show_png(fname, with_data=False)
